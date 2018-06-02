@@ -9,6 +9,7 @@ set(
     base/atomicops_internals_atomicword_compat.h
     base/atomicops_internals_portable.h
     base/atomicops_internals_x86_msvc.h
+    base/atomicops_internals_mac.h
     base/auto_reset.h
     base/bit_cast.h
     base/compiler_specific.h
@@ -17,32 +18,37 @@ set(
     base/files/file_path.cc
     base/files/file_path.h
     base/files/file_util.h
+    base/files/file_util_posix.cc
     base/files/scoped_file.cc
     base/files/scoped_file.h
     base/format_macros.h
-    base/lazy_instance.cc
-    base/lazy_instance.h
     base/logging.cc
     base/logging.h
     base/macros.h
-    base/memory/aligned_memory.cc
-    base/memory/aligned_memory.h
-    base/memory/ptr_util.h
+    base/memory/free_deleter.h
     base/memory/scoped_policy.h
+    base/metrics/histogram_functions.h
+    base/metrics/histogram_macros.h
+    base/metrics/persistent_histogram_allocator.h
     base/numerics/safe_conversions.h
     base/numerics/safe_conversions_impl.h
     base/numerics/safe_math.h
     base/numerics/safe_math_impl.h
+    base/posix/eintr_wrapper.h
+    base/posix/safe_strerror.h
+    base/posix/safe_strerror.cc
+    base/process/memory.cc
+    base/process/memory.h
     base/rand_util.cc
     base/rand_util.h
     base/scoped_clear_errno.h
     base/scoped_generic.h
-    base/stl_util.h
     base/strings/string16.cc
     base/strings/string16.h
     base/strings/string_number_conversions.cc
     base/strings/string_number_conversions.h
     base/strings/string_piece.h
+    base/strings/string_util.cc
     base/strings/string_util.h
     base/strings/stringprintf.cc
     base/strings/stringprintf.h
@@ -52,6 +58,7 @@ set(
     base/strings/utf_string_conversions.cc
     base/strings/utf_string_conversions.h
     base/synchronization/condition_variable.h
+    base/synchronization/condition_variable_posix.cc
     base/synchronization/lock.cc
     base/synchronization/lock.h
     base/synchronization/lock_impl.h

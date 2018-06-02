@@ -56,17 +56,6 @@
 #define ALIGNAS(byte_alignment) __attribute__((aligned(byte_alignment)))
 #endif
 
-// Return the byte alignment of the given type (available at compile time).  Use
-// sizeof(type) prior to checking __alignof to workaround Visual C++ bug:
-// http://goo.gl/isH0C
-// Use like:
-//   ALIGNOF(int32_t)  // this would be 4
-#if defined(COMPILER_MSVC)
-#define ALIGNOF(type) (sizeof(type) - sizeof(type) + __alignof(type))
-#elif defined(COMPILER_GCC)
-#define ALIGNOF(type) __alignof__(type)
-#endif
-
 #if defined(COMPILER_MSVC)
 #define WARN_UNUSED_RESULT
 #else
@@ -86,6 +75,15 @@
 #define HAS_FEATURE(FEATURE) __has_feature(FEATURE)
 #else
 #define HAS_FEATURE(FEATURE) 0
+#endif
+
+// Macro for telling -Wimplicit-fallthrough that a fallthrough is intentional.
+#if __cplusplus >= 201703L  // C++17
+#define FALLTHROUGH [[fallthrough]]
+#elif defined(__clang__)
+#define FALLTHROUGH [[clang::fallthrough]]
+#else
+#define FALLTHROUGH
 #endif
 
 #endif  // MINI_CHROMIUM_BASE_COMPILER_SPECIFIC_H_

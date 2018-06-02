@@ -31,7 +31,11 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #elif defined(OS_WIN)
+#include <intrin.h>
 #include <windows.h>
+#elif defined(OS_FUCHSIA)
+#include <zircon/process.h>
+#include <zircon/syscalls.h>
 #endif
 
 #include "base/strings/string_util.h"
@@ -83,6 +87,25 @@ std::string SystemErrorCodeToString(unsigned long error_code) {
                             error_code);
 }
 #endif  // OS_WIN
+
+#if defined(OS_FUCHSIA)
+zx_koid_t GetKoidForHandle(zx_handle_t handle) {
+  // Get the 64-bit koid (unique kernel object ID) of the given handle.
+  zx_koid_t koid = 0;
+  zx_info_handle_basic_t info;
+  if (zx_object_get_info(handle,
+                         ZX_INFO_HANDLE_BASIC,
+                         &info,
+                         sizeof(info),
+                         nullptr,
+                         nullptr) == ZX_OK) {
+    // If this fails, there's not much that can be done. As this is used only
+    // for logging, leave it as 0, which is not a valid koid.
+    koid = info.koid;
+  }
+  return koid;
+}
+#endif  // OS_FUCHSIA
 
 LogMessage::LogMessage(const char* function,
                        const char* file_path,
@@ -274,14 +297,17 @@ LogMessage::~LogMessage() {
 #endif  // OS_MACOSX
 
   if (severity_ == LOG_FATAL) {
-#ifndef NDEBUG
-    abort();
-#else
-#if defined(OS_WIN)
+#if defined(COMPILER_MSVC)
     __debugbreak();
+    __ud2();
+#elif defined(ARCH_CPU_X86_FAMILY)
+    asm("int3; ud2;");
+#elif defined(ARCH_CPU_ARMEL)
+    asm("bkpt #0; udf #0;");
+#elif defined(ARCH_CPU_ARM64)
+    asm("brk #0; hlt #0;");
 #else
-    __asm__("int3");
-#endif
+    __builtin_trap();
 #endif
   }
 }
@@ -297,7 +323,9 @@ void LogMessage::Init(const char* function) {
     file_name.assign(file_name.substr(last_slash + 1));
   }
 
-#if defined(OS_POSIX)
+#if defined(OS_FUCHSIA)
+  zx_koid_t pid = GetKoidForHandle(zx_process_self());
+#elif defined(OS_POSIX)
   pid_t pid = getpid();
 #elif defined(OS_WIN)
   DWORD pid = GetCurrentProcessId();
@@ -306,10 +334,14 @@ void LogMessage::Init(const char* function) {
 #if defined(OS_MACOSX)
   uint64_t thread;
   pthread_threadid_np(pthread_self(), &thread);
+#elif defined(OS_ANDROID)
+  pid_t thread = gettid();
 #elif defined(OS_LINUX)
   pid_t thread = syscall(__NR_gettid);
 #elif defined(OS_WIN)
   DWORD thread = GetCurrentThreadId();
+#elif defined(OS_FUCHSIA)
+  zx_koid_t thread = GetKoidForHandle(zx_thread_self());
 #endif
 
   stream_ << '['

@@ -15,7 +15,10 @@
 #include "base/logging.h"
 #include "build/build_config.h"
 
-#if defined(OS_POSIX)
+#if defined(OS_FUCHSIA)
+#include <zircon/syscalls.h>
+#include "base/fuchsia/fuchsia_logging.h"
+#elif defined(OS_POSIX)
 #include "base/posix/eintr_wrapper.h"
 #elif defined(OS_WIN)
 #include <windows.h>
@@ -29,12 +32,12 @@
 
 #endif  // OS_WIN
 
-#if defined(OS_POSIX)
+#if defined(OS_POSIX) && !defined(OS_FUCHSIA)
 
 namespace {
 
 int GetUrandomFDInternal() {
-  int fd = HANDLE_EINTR(open("/dev/urandom", O_RDONLY));
+  int fd = HANDLE_EINTR(open("/dev/urandom", O_RDONLY | O_NOCTTY | O_CLOEXEC));
   PCHECK(fd >= 0) << "open /dev/urandom";
   return fd;
 }
@@ -46,7 +49,7 @@ int GetUrandomFD() {
 
 }  // namespace
 
-#endif  // OS_POSIX
+#endif  // OS_POSIX && !OS_FUCHSIA
 
 namespace base {
 
@@ -106,7 +109,24 @@ void RandBytes(void* output, size_t output_length) {
     return;
   }
 
-#if defined(OS_POSIX)
+#if defined(OS_FUCHSIA)
+  char* output_ptr = reinterpret_cast<char*>(output);
+  while (output_length > 0) {
+    // The syscall has a maximum number of bytes that can be read at once.
+    // TODO(scottmg): See ZX-1419, where this may be changed.
+    const size_t requested_bytes_this_pass =
+        std::min(output_length, static_cast<size_t>(ZX_CPRNG_DRAW_MAX_LEN));
+
+    size_t actual;
+    zx_status_t status =
+        zx_cprng_draw(output_ptr, requested_bytes_this_pass, &actual);
+    ZX_CHECK(status == ZX_OK, status) << "zx_cprng_draw";
+
+    DCHECK_GE(output_length, actual);
+    output_length -= actual;
+    output_ptr += actual;
+  }
+#elif defined(OS_POSIX)
   int fd = GetUrandomFD();
   bool success = ReadFromFD(fd, static_cast<char*>(output), output_length);
   CHECK(success);
